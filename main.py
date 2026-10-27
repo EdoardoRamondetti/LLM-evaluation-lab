@@ -4,6 +4,7 @@ from google import genai
 import time
 import json
 import csv
+import script
 
 modello_AI = "gemini-flash-lite-latest"
 thinking_level = "medium"
@@ -15,20 +16,16 @@ Analyze the following ticket and identify the category that most accurately desc
 You are provided with a predefined list of categories; you must choose the category beetween the list of categories provided.
 
 Rules:
-- Create a category that is concise, specific, and meaningful.
-- Use a name consistent with the type of issue or service involved.
-- Avoid generic categories such as "support," "problem," or "request" when a specific issue can be identified.
-- Do not invent details that are not present in the ticket.
-- If the text is too vague to identify the issue, use "undetermined."
-- Return only the category name, with no further explanation.
+- Choose exactly one category from the provided categories list.
+- Do not create new categories or modify their names.
+- Return only the selected category name.
 
 Ticket:
 {message}
 Categories:
 {categories}"""
 
-categories = ["Active Directory","Computer-Services","EOL","Fileservice","O365","Software","Support general"]
-categories = "".join(categories)
+categories = ",".join(script.categories)
 
 load_dotenv()
 
