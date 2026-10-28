@@ -27,6 +27,8 @@ Categories:
 
 categories = ",".join(script.categories)
 
+print(categories)
+
 load_dotenv()
 
 client = genai.Client(
