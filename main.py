@@ -1,44 +1,42 @@
-import os
-from dotenv import load_dotenv
-from google import genai
-import time
 import json
 import csv
 import script
+from adapterPattern import get_client
 
+provider_ai = "gemini"
 modello_AI = "gemini-flash-lite-latest"
-thinking_level = "medium"
+max_tokens = 300
+temperature = 0.0
+# True se si vuole dare le categorie tra cui scegliere la risposta al AI
+thereAreCategories = True
+
+generation_config = {
+    'max_tokens': max_tokens,
+    "temperature":temperature
+}
+
+promptTextCategories = "\nCategories:\n{categories}" if thereAreCategories else ""
 
 prompt_template = """You are an expert in the analysis and classification of IT tickets.
 
 Analyze the following ticket and identify the category that most accurately describes the main issue reported.
 
 You are provided with a predefined list of categories; you must choose the category beetween the list of categories provided.
+If there is not a list of categories you have to obtain the category from the ticket
 
 Rules:
 - Choose exactly one category from the provided categories list.
 - Do not create new categories or modify their names.
-- Return only the selected category name.
+- Return only the selected category name do not write anything else only the category name and nothing else.
 
 Ticket:
-{message}
-Categories:
-{categories}"""
+{message}""" + promptTextCategories
 
 categories = ",".join(script.categories)
 
 print(categories)
 
-load_dotenv()
-
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY"),
-)
-
-generation_config = {
-    'max_output_tokens': 65536,
-    'thinking_level': thinking_level,
-}
+client = get_client(provider_ai,model=modello_AI, generation_config=generation_config)
 
 correctAnswer = 0 
 tempo_risposte = []  
@@ -53,31 +51,33 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
         for fileLine in reader:
             rowsNumber+=1
 
-            if rowsNumber == 10:
+            if rowsNumber == 3:
                 break
 
             id,input,expected = fileLine
             print(fileLine)
-            start = time.perf_counter()
 
-            prompt = prompt_template.format(
-            message=input, categories=categories)
+            prompt = ""
 
-            interaction = client.interactions.create(
-                model=f'models/{modello_AI}',
-                input=prompt,
-                generation_config=generation_config,
-            )
+            if thereAreCategories:
+                prompt = prompt_template.format(
+                message=input, categories=categories)
+                print(prompt)
+            else:
+                 prompt = prompt_template.format(
+                    message=input)
 
-            elapsed = time.perf_counter() - start
+            print(prompt)
 
-            tempo_risposte.append(elapsed)
+            response = client.generate(prompt)
 
-            output = interaction.output_text
+            latency = response["latency"]
 
-            output = output.strip().lower().rstrip(".")
+            tempo_risposte.append(latency)
 
-            outputCorretto = False
+            output = response["output"].strip().lower().rstrip(".")
+
+            print(output)
 
             outputCorretto = output == expected.lower()
 
@@ -86,31 +86,30 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
 
             risultato = {
                 "input": input,
-                "expected": expected,
+                "expected": expected.lower(),
                 "predicted": output,
                 "correct": outputCorretto,
-                "latency": round(elapsed,2)
+                "latency": str(round(latency,2)) + "s"
             }
 
             risultati.append(risultato)
 
             print(risultato)
 
-        tempo_medio_risposte = sum(tempo_risposte)/len(tempo_risposte)
-        accuracy = (correctAnswer/rowsNumber) * 100
+        tempo_medio_risposte = round(sum(tempo_risposte)/len(tempo_risposte),2)
+        accuracy = round((correctAnswer/rowsNumber) * 100,2)
         precision = 0
         recall = 0
         f1 = 0
 
         print("Risposte corrette: ", correctAnswer, "\nAccuracy: ", accuracy, "%")
-        print(f"Tempo medio richieste: {tempo_medio_risposte:.3f}")
+        print(f"Tempo medio richieste: {tempo_medio_risposte}")
 
         experiment = {
-            "model": f"models/{modello_AI}",
+            "model": modello_AI,
             "prompt": prompt_template,
-            "thinking_level":"medium",
             "accuracy": accuracy,
-            "average_latency": tempo_medio_risposte,
+            "average_latency": str(tempo_medio_risposte) + "s",
             "results": risultati
         }
 

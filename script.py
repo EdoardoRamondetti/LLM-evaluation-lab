@@ -1,5 +1,4 @@
 import csv
-import os
 
 categories=[]
 
@@ -49,5 +48,4 @@ def mergeDatasets():
     if (listInput is not None and listExpected is not None) and areListsCorrect(listInput,listExpected):
         writeDatasetFile(listInput,listExpected)
 
-if not os.path.exists("dataset.csv"):
-    mergeDatasets()
+mergeDatasets()
