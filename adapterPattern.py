@@ -14,7 +14,7 @@ class LLMClient(ABC):
         pass
 
 class OpenAIClient(LLMClient):
-    def __init__(self, api_key: str, model: str = "gpt-4o", generation_config:dict = {}):
+    def __init__(self, model: str = "gpt-4o", generation_config:dict = {}):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = model
         self.generation_config = generation_config

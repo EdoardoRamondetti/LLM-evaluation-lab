@@ -1,6 +1,10 @@
 import csv
 
+fileInputs = "X_test.csv"
+fileExpecteds = "y_test.csv"
+
 categories=[]
+realCategories = []
 
 def areListsCorrect(inputVect, expectedVect):
     idInputVect = [i["id"] for i in inputVect]
@@ -38,12 +42,13 @@ def writeDatasetFile(listInput,listExpected):
             input = input["text"]
             writer.writerow([id,input,expected])
 
+            realCategories.append(expected)
             if not expected in categories:
                 categories.append(expected)
 
 def mergeDatasets():
-    listInput = getOrderedDataFromFile("X_test.csv")
-    listExpected = getOrderedDataFromFile("y_test.csv")
+    listInput = getOrderedDataFromFile(fileInputs)
+    listExpected = getOrderedDataFromFile(fileExpecteds)
 
     if (listInput is not None and listExpected is not None) and areListsCorrect(listInput,listExpected):
         writeDatasetFile(listInput,listExpected)
