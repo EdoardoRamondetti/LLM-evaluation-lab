@@ -34,9 +34,9 @@ Rules:
 Ticket:
 {message}""" + promptTextCategories
 
-categoriesVect = script.categories
+categoriesVect = [cat.strip().lower().rstrip(".") for cat in script.categories]
 categories = ",".join(categoriesVect)
-realCategories = script.realCategories
+realCategories = []
 predictedCategories = []
 
 client = get_client(provider_ai,model=modello_AI, generation_config=generation_config)
@@ -45,28 +45,35 @@ correctAnswer = 0
 tempo_risposte = []  
 risultati = []
 experiment = {}
-rowsNumber = 0
+validRowsNumber = 0
+errorRowsNumber = 0
 
 with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
     reader = csv.reader(fDataset)
     
     if next(reader, None) is not None:
         startTime = datetime.now()
-        for fileLine in reader:
-            rowsNumber+=1
-
-            id,input,expected = fileLine
+        for i,fileLine in enumerate(reader,1):
+            id,text,expected = fileLine
 
             prompt = ""
 
             if thereAreCategories:
                 prompt = prompt_template.format(
-                message=input, categories=categories)
+                message=text, categories=categories)
             else:
                  prompt = prompt_template.format(
-                    message=input)
-
-            response = client.generate(prompt)
+                    message=text)
+            print("Linea corrente: " + str(i))
+            try:
+                response = client.generate(prompt)
+            except Exception as e:
+                print(f"[{i}] ERRORE: {e}", flush=True)
+                errorRowsNumber+=1
+                risultati.append({"input": text, "expected": expected.lower().strip(),
+                          "predicted": "__error__", "correct": False,
+                          "latency": "n/a", "error": str(e)})
+                continue
 
             latency = response["latency"]
 
@@ -74,21 +81,23 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
 
             output = response["output"].strip().lower().rstrip(".")
             predictedCategories.append(output)
+            realCategories.append(expected.strip().lower().rstrip("."))
 
-            outputCorretto = output == expected.lower()
+            outputCorretto = output == expected.lower().strip().rstrip(".")
 
             if outputCorretto:   
                     correctAnswer+=1
 
             risultato = {
-                "input": input,
-                "expected": expected.lower(),
+                "input": text,
+                "expected": expected.lower().strip().rstrip("."),
                 "predicted": output,
                 "correct": outputCorretto,
                 "latency": str(round(latency,2)) + "s"
             }
 
             risultati.append(risultato)
+            validRowsNumber+=1
 
         endTime = datetime.now()
 
@@ -101,11 +110,9 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
 
         durationBenchmarkFormatted = f"{minuts} minuts and {seconds} seconds"
 
-        tempo_medio_risposte = round(sum(tempo_risposte)/len(tempo_risposte),2)
-        accuracy = round((correctAnswer/rowsNumber) * 100,2)
-        precision = 0
-        recall = 0
-        f1 = 0
+        tempo_medio_risposte = round(sum(tempo_risposte) / len(tempo_risposte), 2) if tempo_risposte else None
+
+        accuracy = round((correctAnswer / validRowsNumber) * 100, 2) if validRowsNumber else None
 
         report = classification_report(realCategories, predictedCategories, labels=categoriesVect, zero_division=0, output_dict=True)
         print("--- Report ---")
@@ -122,6 +129,13 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
         print("Risposte corrette: ", correctAnswer, "\nAccuracy: ", accuracy, "%")
         print(f"Tempo medio richieste: {tempo_medio_risposte}")
 
+        righe_predette_fuori = sum(1 for p in predictedCategories if p not in categoriesVect)
+        righe_in_matrice = sum(sum(row) for row in cm)
+        righe_attese = validRowsNumber - righe_predette_fuori
+        print(f"Matrice: {righe_in_matrice} righe, attese {righe_attese} "
+            f"(validi={validRowsNumber}, predetti fuori={righe_predette_fuori})"
+        )
+        
         experiment = {
             "start time": startTime.strftime("%Y-%m-%d %H:%M:%S"),
             "end time": endTime.strftime("%Y-%m-%d %H:%M:%S"),
@@ -130,8 +144,20 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
             "model": modello_AI,
             "prompt": prompt_template,
             "accuracy": accuracy,
-            "average_latency": str(tempo_medio_risposte) + "s",
+            "average_latency": f"{tempo_medio_risposte}s" if tempo_medio_risposte is not None else None,
+            "valid rows":validRowsNumber,
+            "error rows":errorRowsNumber,
+            "predicted_rows_outside_labels": righe_predette_fuori,
+            "results_note": (
+            f"'results' contiene {validRowsNumber} risposte API valide + {errorRowsNumber} errori API. "
+            f"'report' e 'matrix confusion' sono calcolati su {validRowsNumber - righe_predette_fuori} righe "
+            f"(escluse {righe_predette_fuori} predizioni fuori dalle label note). "
+            f"'accuracy' è calcolata su tutte le {validRowsNumber} risposte valide."
+            ),
             "report": report,
+            "matrix_rows_sum": righe_in_matrice,
+            "matrix_rows_expected": righe_attese,
+            "matrix_coherent": righe_in_matrice == righe_attese,
             "matrix confusion": cm_structured,
             "results": risultati
         }

@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 from google import genai
+from google.genai import types
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import time
+import httpx
 
 load_dotenv()
 
@@ -31,7 +33,18 @@ class OpenAIClient(LLMClient):
 
 class GeminiClient(LLMClient):
     def __init__(self,  model: str = "gemini-flash-lite-latest", generation_config:dict = {}):
-        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        http_client = httpx.Client(timeout=httpx.Timeout(30.0, connect=10.0))
+        self.client = genai.Client(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            http_options=types.HttpOptions(
+                httpx_client=http_client,  # Usa direttamente il client httpx personalizzato
+                retry_options=types.HttpRetryOptions(
+                    attempts=1,
+                    http_status_codes=[429]
+                )
+            )
+        )
+
         self.model = f"models/{model}"
         self.generation_config = {
             'max_output_tokens': generation_config["max_tokens"],
@@ -40,10 +53,10 @@ class GeminiClient(LLMClient):
 
     def generate(self, prompt: str) -> dict:
         start = time.perf_counter()
-        resp = self.client.interactions.create(
+        resp = self.client.models.generate_content(
             model=self.model,
-            input=prompt,
-            generation_config=self.generation_config
+            contents=prompt,
+            config=types.GenerateContentConfig(**self.generation_config)
         )
         elapsed = time.perf_counter() - start
         return {"output":resp.output_text, "latency": elapsed}
