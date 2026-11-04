@@ -117,6 +117,7 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
         report = classification_report(realCategories, predictedCategories, labels=categoriesVect, zero_division=0, output_dict=True)
         print("--- Report ---")
         print(report)
+        print(type(report["eol"]["precision"]))
 
         print("--- Matrice di Confusione ---")
         cm = confusion_matrix(realCategories, predictedCategories, labels=categoriesVect)
@@ -163,6 +164,6 @@ with open("dataset.csv", "r", newline="", encoding="utf-8") as fDataset:
         }
 
         with open("risultati.json", "a", encoding="utf-8") as file:
-            json.dump(experiment,file,ensure_ascii=False,indent=2)
+            json.dump(experiment,file,ensure_ascii=False,indent=2,default=str)
     else:
         print("Il dataset è vuoto")

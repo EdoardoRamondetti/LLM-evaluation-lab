@@ -59,7 +59,7 @@ class GeminiClient(LLMClient):
             config=types.GenerateContentConfig(**self.generation_config)
         )
         elapsed = time.perf_counter() - start
-        return {"output":resp.output_text, "latency": elapsed}
+        return {"output":resp.text, "latency": elapsed}
 
 class OllamaClient(LLMClient):
     def __init__(self, base_url: str = "http://localhost:11434/v1", model: str = "llama3.1:8b", generation_config:dict = {}):
