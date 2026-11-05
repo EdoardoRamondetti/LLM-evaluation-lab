@@ -59,12 +59,15 @@ def writeDatasetFile(listInput,listExpected):
                 categories.append(expected)
 
 def mergeDatasets():
-    listInput = getOrderedDataFromFile(fileInputs)
-    listExpected = getOrderedDataFromFile(fileExpecteds)
+    if fileInputs and fileExpecteds:
+        listInput = getOrderedDataFromFile(fileInputs)
+        listExpected = getOrderedDataFromFile(fileExpecteds)
 
-    if (listInput is not None and listExpected is not None) and areListsCorrect(listInput,listExpected):
-        writeDatasetFile(listInput,listExpected)
+        if (listInput is not None and listExpected is not None) and areListsCorrect(listInput,listExpected):
+            writeDatasetFile(listInput,listExpected)
+        else:
+            print("Errore di lettura dei file dataset")
     else:
-        print("Errore di lettura dei file dataset")
+        print("File per la crezione del dataset non presenti")
 
 mergeDatasets()
